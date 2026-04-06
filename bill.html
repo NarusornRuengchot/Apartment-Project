@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบพิมพ์บิลค่าเช่า</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --ink: #1a1a2e;
+            --paper: #faf8f4;
+            --cream: #f0ede6;
+            --accent: #c0392b;
+            --border: #c8c4bc;
+            --shadow: rgba(26, 26, 46, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background: #2b2b3d;
+            color: var(--ink);
+            min-height: 100vh;
+        }
+
+        /* ===== SCREEN UI ===== */
+        .screen-ui {
+            padding: 24px 28px 60px;
+        }
+
+        .app-header {
+            margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .app-title h1 {
+            color: #fff;
+            font-size: 17px;
+            font-weight: 600;
+        }
+
+        .app-title p {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px;
+            margin-top: 3px;
+        }
+
+        .upload-zone {
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.03);
+            margin-bottom: 18px;
+            transition: border-color 0.15s;
+            position: relative;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.drag-over {
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .upload-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .upload-zone h2 {
+            color: #fff;
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .upload-zone p {
+            color: rgba(255, 255, 255, 0.35);
+            font-size: 12px;
+        }
+
+        .badge {
+            display: inline-block;
+            margin-top: 10px;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+
+        .controls-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 22px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            align-items: flex-end;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.45);
+            font-weight: 600;
+            letter-spacing: 0.7px;
+            text-transform: uppercase;
+        }
+
+        .control-group select {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.13);
+            border-radius: 7px;
+            color: #fff;
+            padding: 8px 13px;
+            font-family: 'Sarabun', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            min-width: 170px;
+        }
+
+        .control-group select option {
+            background: #2b2b3d;
+        }
+
+        .btn {
+            padding: 9px 20px;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Sarabun', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #a93226;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.09);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.13);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.14);
+        }
+
+        .info-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .month-label {
+            color: #fff;
+            font-size: 17px;
+            font-weight: 600;
+        }
+
+        .room-count {
+            background: rgba(255, 255, 255, 0.07);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            padding: 4px 13px;
+            border-radius: 20px;
+            margin-left: 10px;
+        }
+
+        .bills-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+            gap: 14px;
+        }
+
+        .bill-card {
+            background: var(--paper);
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .card-head {
+            background: var(--ink);
+            color: #fff;
+            padding: 8px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-room {
+            font-size: 15px;
+            font-weight: 700;
+            font-family: 'IBM Plex Mono', monospace;
+            letter-spacing: 1px;
+        }
+
+        .card-total {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffd080;
+        }
+
+        .card-body {
+            padding: 10px 14px;
+        }
+
+        .card-tenant {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin-bottom: 8px;
+        }
+
+        .card-tenant input {
+            flex: 1;
+            border: none;
+            border-bottom: 1.5px solid var(--border);
+            background: transparent;
+            font-family: 'Sarabun', sans-serif;
+            font-size: 13px;
+            color: var(--ink);
+            padding: 2px 0;
+            outline: none;
+        }
+
+        .card-tenant input:focus {
+            border-color: var(--accent);
+        }
+
+        .card-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            padding: 2.5px 0;
+            border-bottom: 1px solid #eeebe5;
+            color: #555;
+        }
+
+        .card-row:last-child {
+            border-bottom: none;
+        }
+
+        .card-row .v {
+            font-weight: 600;
+            color: var(--ink);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11.5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 32px;
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        #toast {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            background: #1a6b3c;
+            color: white;
+            padding: 11px 18px;
+            border-radius: 9px;
+            font-size: 13.5px;
+            transform: translateY(70px);
+            opacity: 0;
+            transition: all 0.3s;
+            pointer-events: none;
+            z-index: 999;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        #toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* ===== PRINT AREA hidden on screen ===== */
+        @media screen {
+            .print-area {
+                display: none;
+            }
+        }
+
+        /* ===== PRINT ===== */
+        @media print {
+            * {
+                -webkit-print-color-adjust: economy !important;
+                print-color-adjust: economy !important;
+            }
+
+            .screen-ui {
+                display: none !important;
+            }
+
+            .print-area {
+                display: block !important;
+            }
+
+            body {
+                background: white;
+            }
+
+            @page {
+                size: A4 portrait;
+                margin: 6mm 8mm;
+            }
+
+            /* 1 page = 1 group of 3 bills */
+            .bill-group {
+                width: 100%;
+                height: 285mm;
+                display: flex;
+                flex-direction: column;
+                page-break-after: always;
+                page-break-inside: avoid;
+            }
+
+            .bill-group:last-child {
+                page-break-after: auto;
+            }
+
+            /* Each bill: 285mm ÷ 3 = 95mm. Cut line sits ON the top border. */
+            .bill-slot {
+                flex: 0 0 95mm;
+                height: 95mm;
+                overflow: hidden;
+                position: relative;
+            }
+
+            .bill-slot:not(:first-child) {
+                border-top: 1px dashed #aaa;
+            }
+
+            /* Scissor icon at start of cut line */
+            .bill-slot:not(:first-child)::before {
+                content: '✂';
+                position: absolute;
+                top: -1px;
+                left: -5mm;
+                font-size: 7pt;
+                color: #bbb;
+                line-height: 1;
+            }
+        }
+
+        /* ===== BILL SLIP (shared screen+print style) ===== */
+        /* Bill slip — must fit in 95mm tall, zero overflow */
+        .bill-slip {
+            font-family: 'Sarabun', sans-serif;
+            font-size: 8.5pt;
+            color: #111;
+            padding: 2.5mm 4mm 2mm;
+            background: white;
+            height: 95mm;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5mm;
+            overflow: hidden;
+        }
+
+        /* head */
+        .slip-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2pt solid #000;
+            padding-bottom: 2mm;
+            gap: 8px;
+        }
+
+        .slip-head-left {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .slip-bldg {
+            font-size: 13pt;
+            font-weight: 800;
+            color: #000;
+            white-space: nowrap;
+        }
+
+        .slip-period {
+            font-size: 9pt;
+            color: #555;
+        }
+
+        .slip-room-badge {
+            background: transparent;
+            color: #000;
+            padding: 2px 10px;
+            border-radius: 4px;
+            border: 2pt solid #000;
+            font-size: 13pt;
+            font-weight: 800;
+            font-family: 'IBM Plex Mono', monospace;
+            white-space: nowrap;
+        }
+
+        /* tenant */
+        .slip-tenant {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 9.5pt;
+            color: #444;
+            border-bottom: 1pt solid #ddd;
+            padding-bottom: 1.5mm;
+        }
+
+        .slip-tenant-val {
+            flex: 1;
+            font-size: 10pt;
+            font-weight: 700;
+            color: #111;
+        }
+
+        /* charge table — single full-width table */
+        .slip-charge-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9pt;
+        }
+
+        .slip-charge-table th {
+            background: #f0f0f0;
+            color: #000;
+            padding: 2px 5px;
+            text-align: center;
+            font-size: 8pt;
+            font-weight: 700;
+            border: 0.5pt solid #aaa;
+        }
+
+        .slip-charge-table th.tl {
+            text-align: left;
+        }
+
+        .slip-charge-table td {
+            padding: 3px 5px;
+            border: 0.5pt solid #ccc;
+            text-align: right;
+            font-size: 9pt;
+        }
+
+        .slip-charge-table td.lbl {
+            text-align: left;
+            background: #fafafa;
+            font-weight: 600;
+        }
+
+        .slip-charge-table td.ctr {
+            text-align: center;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 8.5pt;
+        }
+
+        .slip-charge-table td.num {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9pt;
+            font-weight: 600;
+        }
+
+        .slip-charge-table tr.total-row td {
+            background: #f5f5f5;
+            font-weight: 700;
+            font-size: 10pt;
+            border-top: 1pt solid #999;
+        }
+
+        .slip-charge-table tr.total-row td.num {
+            font-size: 11pt;
+        }
+
+        /* full-width spanning rows (ค่าที่พัก, รวม) */
+        .slip-charge-table td.span-row {
+            padding: 3px 5px;
+            border: 0.5pt solid #ccc;
+            border-left: none;
+            border-right: none;
+            background: #fafafa;
+        }
+
+        .slip-charge-table tr.total-row td.span-row {
+            background: #f5f5f5;
+            border-top: 1pt solid #999;
+        }
+
+        .span-row-inner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .span-row-inner>span:first-child {
+            font-weight: 600;
+            font-size: 9pt;
+        }
+
+        .slip-charge-table tr.total-row .span-row-inner>span:first-child {
+            font-weight: 700;
+            font-size: 10pt;
+        }
+
+        .span-row-inner .num {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9pt;
+            font-weight: 600;
+            color: #111;
+        }
+
+        .slip-charge-table tr.total-row .span-row-inner .num {
+            font-size: 11pt;
+            font-weight: 700;
+        }
+
+        /* summary */
+        .slip-summary {
+            display: flex;
+            gap: 3mm;
+            align-items: stretch;
+        }
+
+        .slip-total-box {
+            background: #000;
+            color: #fff;
+            border-radius: 4px;
+            border: 2pt solid #000;
+            padding: 3px 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 80px;
+        }
+
+        .slip-total-label {
+            font-size: 7pt;
+            color: #bbb;
+        }
+
+        .slip-total-num {
+            font-size: 16pt;
+            font-weight: 800;
+            font-family: 'IBM Plex Mono', monospace;
+            color: #fff;
+            line-height: 1.1;
+        }
+
+        .slip-total-unit {
+            font-size: 7pt;
+            color: #bbb;
+        }
+
+        .slip-remark-wrap {
+            flex: 1;
+        }
+
+        .slip-remark-label {
+            font-size: 7.5pt;
+            color: #888;
+            margin-bottom: 1px;
+        }
+
+        .slip-remark-box {
+            background: transparent;
+            border: 0.5pt solid #aaa;
+            border-radius: 2px;
+            padding: 2px 5px;
+            min-height: 14pt;
+            font-size: 8.5pt;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        .slip-remark-box.empty {
+            color: #bbb;
+        }
+
+        .slip-sig {
+            text-align: center;
+            min-width: 72px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        .slip-sig-line {
+            border-bottom: 0.5pt solid #555;
+            margin-bottom: 1.5px;
+        }
+
+        .slip-sig-text {
+            font-size: 6.5pt;
+            color: #888;
+        }
+
+        /* bank info */
+        .slip-bank {
+            min-width: 100px;
+            border: 0.5pt solid #bbb;
+            border-radius: 3px;
+            padding: 3px 7px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 2px;
+        }
+
+        .slip-bank-title {
+            font-size: 7pt;
+            color: #888;
+            border-bottom: 0.5pt solid #ddd;
+            padding-bottom: 2px;
+            margin-bottom: 2px;
+        }
+
+        .slip-bank-row {
+            font-size: 8pt;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        .slip-bank-row b {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 8.5pt;
+            color: #111;
+            letter-spacing: 0.3px;
+        }
+
+        /* signature row */
+        .slip-sig-row {
+            margin-top: auto;
+            padding-top: 3mm;
+            border-top: 0.5pt solid #ddd;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .slip-sig-box {
+            text-align: center;
+            width: 60mm;
+        }
+
+        .slip-sig-line-long {
+            border-bottom: 0.5pt solid #555;
+            margin-bottom: 3px;
+            height: 12mm;
+        }
+
+        .slip-sig-text {
+            font-size: 8pt;
+            color: #888;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- SCREEN UI -->
+    <div class="screen-ui">
+        <div class="app-header">
+            <div class="app-title">
+                <h1>ระบบพิมพ์บิลค่าเช่า</h1>
+                <p>1 กระดาษ A4 = 3 บิล · แนวตัดประ</p>
+            </div>
+        </div>
+
+        <div class="upload-zone" id="uploadZone">
+            <input type="file" id="fileInput" accept=".xlsx,.xls" />
+            <h2>อัปโหลดไฟล์ Excel</h2>
+            <p>คลิกหรือลากไฟล์มาวางที่นี่</p>
+            <span class="badge">.xlsx / .xls</span>
+        </div>
+
+        <div class="controls-panel" id="controlsPanel" style="display:none">
+            <div class="control-group">
+                <label>เดือน</label>
+                <select id="sheetSelect"></select>
+            </div>
+            <div class="control-group">
+                <label>ห้อง</label>
+                <select id="roomFilter">
+                    <option value="all">ทุกห้อง</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="renderBills()">แสดงตัวอย่าง</button>
+            <button class="btn btn-secondary" onclick="printBills()">พิมพ์บิล</button>
+        </div>
+
+        <div class="info-bar" id="infoBar" style="display:none">
+            <div>
+                <span class="month-label" id="monthLabel"></span>
+                <span class="room-count" id="roomCount"></span>
+            </div>
+            <button class="btn btn-secondary" style="font-size:12px" onclick="resetFilter()">แสดงทุกห้อง</button>
+        </div>
+
+        <div id="billsContainer">
+            <div class="empty-state">
+                <p>อัปโหลดไฟล์ Excel เพื่อเริ่มต้น</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT AREA -->
+    <div class="print-area" id="printArea"></div>
+    <div id="toast"></div>
+
+    <script>
+        let workbook = null, billsData = [], tenantNames = {};
+
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+        uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); });
+        fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+        function processFile(file) {
+            const r = new FileReader();
+            r.onload = e => {
+                try {
+                    workbook = XLSX.read(e.target.result, { type: 'array', cellFormula: true });
+                    populateSheets();
+                    showToast('โหลดไฟล์สำเร็จ: ' + file.name);
+                    uploadZone.style.display = 'none';
+                    document.getElementById('controlsPanel').style.display = 'flex';
+                    document.getElementById('infoBar').style.display = 'flex';
+                    renderBills();
+                } catch (err) { showToast('อ่านไฟล์ไม่ได้', true); console.error(err); }
+            };
+            r.readAsArrayBuffer(file);
+        }
+
+        function populateSheets() {
+            const sel = document.getElementById('sheetSelect');
+            sel.innerHTML = '';
+            workbook.SheetNames.forEach(n => { const o = document.createElement('option'); o.value = o.textContent = n; sel.appendChild(o); });
+            sel.selectedIndex = workbook.SheetNames.length - 1;
+        }
+
+        function parseSheet(name) {
+            const ws = workbook.Sheets[name];
+            const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+            const bldg = (data[0]?.[0] || 'อพาร์ทเมนท์').toString();
+            const period = (data[1]?.[0] || name).toString();
+            const bills = [];
+            for (let i = 4; i < data.length; i++) {
+                const r = data[i];
+                if (!r || r[0] == null || isNaN(parseFloat(r[0]))) continue;
+                const wPrev = parseFloat(r[1]) || 0, wCurr = parseFloat(r[2]) || 0, wUnits = wCurr - wPrev;
+                const wAmt = resolveAmt(r[4], wUnits, ws, i + 1, 'E');
+                const ePrev = parseFloat(r[5]) || 0, eCurr = parseFloat(r[6]) || 0, eUnits = eCurr - ePrev;
+                const eAmt = resolveAmt(r[8], eUnits, ws, i + 1, 'I');
+                const rent = parseFloat(r[9]) || 0, other = parseFloat(r[10]) || 0;
+                const remark = [r[12], r[13]].filter(Boolean).join(' | ');
+                bills.push({ room: String(r[0]), wPrev, wCurr, wUnits, wAmt, ePrev, eCurr, eUnits, eAmt, rent, other, total: wAmt + eAmt + rent + other, remark, bldg, period });
+            }
+            return bills;
+        }
+
+        function resolveAmt(cellVal, units, ws, excelRow, col) {
+            if (cellVal !== null && cellVal !== undefined && !isNaN(parseFloat(cellVal))) return parseFloat(cellVal);
+            const cell = ws[col + excelRow];
+            if (!cell) return 0;
+            if (cell.v !== undefined && !isNaN(parseFloat(cell.v))) return parseFloat(cell.v);
+            if (cell.f) { const m = cell.f.match(/(\d+)\*[A-Z]\d+/i); if (m) return parseInt(m[1]) * units; }
+            return 0;
+        }
+
+        function renderBills() {
+            const name = document.getElementById('sheetSelect').value;
+            if (!name) return;
+            billsData = parseSheet(name);
+            syncRoomFilter();
+            const room = document.getElementById('roomFilter').value;
+            const list = room === 'all' ? billsData : billsData.filter(b => b.room === room);
+            document.getElementById('monthLabel').textContent = billsData[0]?.period || name;
+            document.getElementById('roomCount').textContent = list.length + ' ห้อง';
+            const box = document.getElementById('billsContainer');
+            if (!list.length) { box.innerHTML = '<div class="empty-state"><p>ไม่พบข้อมูล</p></div>'; return; }
+            box.innerHTML = '<div class="bills-preview" id="previewGrid"></div>';
+            list.forEach(b => document.getElementById('previewGrid').appendChild(mkCard(b)));
+        }
+
+        function syncRoomFilter() {
+            const sel = document.getElementById('roomFilter');
+            const prev = sel.value;
+            sel.innerHTML = '<option value="all">ทุกห้อง</option>';
+            billsData.forEach(b => { const o = document.createElement('option'); o.value = b.room; o.textContent = 'ห้อง ' + b.room; sel.appendChild(o); });
+            if ([...sel.options].find(o => o.value === prev)) sel.value = prev;
+        }
+
+        function resetFilter() { document.getElementById('roomFilter').value = 'all'; renderBills(); }
+
+        function mkCard(b) {
+            const el = document.createElement('div');
+            el.className = 'bill-card';
+            const tn = tenantNames[b.room] || '';
+            el.innerHTML = `
+    <div class="card-head">
+      <span class="card-room">ห้อง ${b.room}</span>
+      <span class="card-total">${fmt(b.total)} ฿</span>
+    </div>
+    <div class="card-body">
+      <div class="card-tenant">
+        <input type="text" placeholder="ชื่อผู้เช่า" value="${tn}"
+          oninput="tenantNames['${b.room}']=this.value" onclick="event.stopPropagation()" />
+      </div>
+      <div class="card-row"><span>ค่าน้ำ (${b.wUnits} หน่วย)</span><span class="v">${fmt(b.wAmt)}</span></div>
+      <div class="card-row"><span>ค่าไฟ (${b.eUnits} หน่วย)</span><span class="v">${fmt(b.eAmt)}</span></div>
+      <div class="card-row"><span>ค่าที่พัก</span><span class="v">${fmt(b.rent)}</span></div>
+      ${b.other ? `<div class="card-row"><span>ค่าอื่นๆ</span><span class="v">${fmt(b.other)}</span></div>` : ''}
+      ${b.remark ? `<div class="card-row" style="color:#888;font-size:11px"><span>${b.remark}</span></div>` : ''}
+    </div>`;
+            return el;
+        }
+
+        function printBills() {
+            buildPrintArea();
+            setTimeout(() => window.print(), 250);
+        }
+
+        function buildPrintArea() {
+            const name = document.getElementById('sheetSelect').value;
+            if (!name || !billsData.length) return;
+            const room = document.getElementById('roomFilter').value;
+            const list = room === 'all' ? billsData : billsData.filter(b => b.room === room);
+            const area = document.getElementById('printArea');
+            area.innerHTML = '';
+            // Group into pages of 3
+            for (let i = 0; i < list.length; i += 3) {
+                const group = document.createElement('div');
+                group.className = 'bill-group';
+                const chunk = list.slice(i, i + 3);
+                chunk.forEach(b => {
+                    const slot = document.createElement('div');
+                    slot.className = 'bill-slot';
+                    slot.appendChild(mkSlip(b));
+                    group.appendChild(slot);
+                });
+                // Pad remaining slots so page height is always filled
+                for (let j = chunk.length; j < 3; j++) {
+                    const empty = document.createElement('div');
+                    empty.className = 'bill-slot';
+                    group.appendChild(empty);
+                }
+                area.appendChild(group);
+            }
+        }
+
+        function mkSlip(b) {
+            const tn = tenantNames[b.room] || '';
+            const div = document.createElement('div');
+            div.className = 'bill-slip';
+            const rBox = b.remark
+                ? `<div class="slip-remark-box">${b.remark}</div>`
+                : `<div class="slip-remark-box empty">-</div>`;
+
+            div.innerHTML = `
+    <div class="slip-head">
+      <div class="slip-head-left">
+        <span class="slip-bldg">${b.bldg}</span>
+        <span class="slip-period">${b.period}</span>
+      </div>
+      <div class="slip-room-badge">ห้อง ${b.room}</div>
+    </div>
+
+    <div class="slip-tenant">
+      <span>ผู้เช่า :</span>
+      <span class="slip-tenant-val">${tn}</span>
+    </div>
+
+    <table class="slip-charge-table">
+      <tr>
+        <th class="tl">รายการ</th>
+        <th>มาตรวัดก่อน</th>
+        <th>มาตรวัดหลัง</th>
+        <th>หน่วย</th>
+        <th>จำนวน (฿)</th>
+      </tr>
+      <tr>
+        <td class="lbl">ค่าน้ำประปา</td>
+        <td class="ctr">${fmt(b.wPrev)}</td>
+        <td class="ctr">${fmt(b.wCurr)}</td>
+        <td class="ctr">${b.wUnits}</td>
+        <td class="num">${fmt(b.wAmt)}</td>
+      </tr>
+      <tr>
+        <td class="lbl">ค่าไฟฟ้า</td>
+        <td class="ctr">${fmt(b.ePrev)}</td>
+        <td class="ctr">${fmt(b.eCurr)}</td>
+        <td class="ctr">${b.eUnits}</td>
+        <td class="num">${fmt(b.eAmt)}</td>
+      </tr>
+      <tr>
+        <td class="span-row" colspan="5">
+          <div class="span-row-inner"><span>ค่าที่พัก</span><span class="num">${fmt(b.rent)}</span></div>
+        </td>
+      </tr>
+      ${b.other ? `<tr><td class="span-row" colspan="5"><div class="span-row-inner"><span>ค่าอื่นๆ</span><span class="num">${fmt(b.other)}</span></div></td></tr>` : ''}
+      <tr class="total-row">
+        <td class="span-row" colspan="5">
+          <div class="span-row-inner"><span>รวมทั้งสิ้น</span><span class="num">${fmt(b.total)}</span></div>
+        </td>
+      </tr>
+    </table>
+
+    <div class="slip-summary">
+      <div class="slip-remark-wrap">
+        <div class="slip-remark-label">หมายเหตุ</div>
+        ${rBox}
+      </div>
+      <div class="slip-bank">
+        <div class="slip-bank-title">โอนเงินเข้าบัญชี</div>
+        <div class="slip-bank-row">ผู้รับ : สายสุนีย์ เรืองโชติ</div>
+        <div class="slip-bank-row">กสิกรไทย &nbsp;<b>477-2-46739-2</b></div>
+      </div>
+    </div>
+
+    <div class="slip-sig-row">
+      <div class="slip-sig-box">
+        <div class="slip-sig-line-long"></div>
+        <div class="slip-sig-text">ลายมือชื่อผู้รับเงิน / วันที่</div>
+      </div>
+    </div>`;
+            return div;
+        }
+
+        function fmt(n) { if (!n || n === 0) return '0'; return Number(n).toLocaleString('th-TH'); }
+
+        function showToast(msg, err = false) {
+            const t = document.getElementById('toast');
+            t.textContent = msg; t.style.background = err ? '#8b2020' : '#1a6b3c';
+            t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        document.getElementById('sheetSelect').addEventListener('change', renderBills);
+        document.getElementById('roomFilter').addEventListener('change', renderBills);
+    </script>
+</body>
+
+</html>
